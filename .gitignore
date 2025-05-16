@@ -35,3 +35,21 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### OS ###
+Thumbs.db
+desktop.ini
+
+### Java ###
+*.class
+*.jar
+*.war
+*.log
+
+### Environment files ###
+*.env
+*.local
+
+### Logs ###
+logs/
+npm-debug.log*
