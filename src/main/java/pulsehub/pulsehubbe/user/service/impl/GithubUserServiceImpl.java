@@ -7,6 +7,7 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import pulsehub.pulsehubbe.global.exception.GlobalException;
+import pulsehub.pulsehubbe.global.exception.type.ErrorCode;
 import pulsehub.pulsehubbe.user.dto.GithubUserDto;
 import pulsehub.pulsehubbe.user.service.GithubUserService;
 
@@ -29,7 +30,7 @@ public class GithubUserServiceImpl implements GithubUserService {
             );
 
             if (response == null || response.isEmpty()) {
-                throw new GlobalException("GitHub 사용자 정보를 찾을 수 없습니다.", 404);
+                throw new GlobalException(ErrorCode.USER_NOT_FOUND);
             }
 
             return GithubUserDto.builder()
@@ -42,7 +43,7 @@ public class GithubUserServiceImpl implements GithubUserService {
                     .build();
 
         } catch (RestClientException e) {
-            throw new GlobalException("GitHub 사용자 정보를 불러오는 데 실패했습니다.", 500);
+            throw new GlobalException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
     }
 }

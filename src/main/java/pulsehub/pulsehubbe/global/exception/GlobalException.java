@@ -1,14 +1,14 @@
 package pulsehub.pulsehubbe.global.exception;
 
+import pulsehub.pulsehubbe.global.exception.type.ErrorCode;
+import lombok.Getter;
+
+@Getter
 public class GlobalException extends RuntimeException {
-    private final int status;
+    private final ErrorCode errorCode;
 
-    public GlobalException(String message, int status) {
-        super(message);
-        this.status = status;
-    }
-
-    public int getStatus() {
-        return status;
+    public GlobalException(ErrorCode errorCode) {
+        super(errorCode.getDescription());
+        this.errorCode = errorCode;
     }
 }
