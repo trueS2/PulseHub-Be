@@ -15,7 +15,7 @@ public class UserController {
         this.githubUserService = githubUserService;
     }
 
-    @GetMapping("/api/users/{username}")
+    @GetMapping("/api/github/user/{username}")
     public GithubUserDto getUser(@PathVariable String username) {
         return githubUserService.getUser(username);
     }
