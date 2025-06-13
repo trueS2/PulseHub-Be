@@ -1,8 +1,6 @@
 package pulsehub.pulsehubbe.activity.util;
 
-import java.time.LocalDate;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
@@ -46,19 +44,39 @@ public class GitHubApiClient {
         Map<LocalDate, Integer> commitCountMap = new HashMap<>();
 
         for (String repo : repos) {
-            fetchCommitsForRepo(username, repo, startDate, endDate, commitCountMap);
+            fetchCommitsForRepo(username, repo, startDate, endDate, commitCountMap, null);
         }
         return commitCountMap;
     }
 
-    private void fetchCommitsForRepo(String owner, String repo, LocalDate startDate, LocalDate endDate, Map<LocalDate, Integer> commitCountMap) {
+    public Map<Integer, Integer> fetchHourlyCommitCounts(String username, LocalDate startDate, LocalDate endDate) {
+        List<String> repos = fetchUserRepos(username);
+        Map<Integer, Integer> hourlyCommitMap = new HashMap<>();
+
+        for (String repo : repos) {
+            fetchCommitsForRepo(username, repo, startDate, endDate, null, hourlyCommitMap);
+        }
+        return hourlyCommitMap;
+    }
+
+    private void fetchCommitsForRepo(
+            String owner,
+            String repo,
+            LocalDate startDate,
+            LocalDate endDate,
+            Map<LocalDate, Integer> dailyMap,
+            Map<Integer, Integer> hourlyMap) {
+
         OffsetDateTime sinceDateTime = startDate.atStartOfDay().atOffset(ZoneOffset.UTC);
         OffsetDateTime untilDateTime = endDate.plusDays(1).atStartOfDay().atOffset(ZoneOffset.UTC);
 
         String sinceParam = sinceDateTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
         String untilParam = untilDateTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
 
-        String url = String.format(GITHUB_API_BASE + "/repos/%s/%s/commits?since=%s&until=%s&per_page=100", owner, repo, sinceParam, untilParam);
+        String url = String.format(
+                GITHUB_API_BASE + "/repos/%s/%s/commits?since=%s&until=%s&per_page=100",
+                owner, repo, sinceParam, untilParam
+        );
 
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(githubToken);
@@ -71,9 +89,16 @@ public class GitHubApiClient {
                 for (Commit commit : response.getBody()) {
                     String dateStr = commit.commit.author.date;
                     OffsetDateTime odt = OffsetDateTime.parse(dateStr);
-                    LocalDate commitDate = odt.toLocalDate();
+                    LocalDate date = odt.toLocalDate();
+                    int hour = odt.getHour(); // 0 ~ 23
 
-                    commitCountMap.put(commitDate, commitCountMap.getOrDefault(commitDate, 0) + 1);
+                    if (dailyMap != null) {
+                        dailyMap.put(date, dailyMap.getOrDefault(date, 0) + 1);
+                    }
+
+                    if (hourlyMap != null) {
+                        hourlyMap.put(hour, hourlyMap.getOrDefault(hour, 0) + 1);
+                    }
                 }
             }
         } catch (Exception e) {
@@ -82,6 +107,7 @@ public class GitHubApiClient {
         }
     }
 
+    // 내부 클래스: GitHub API 응답용
     static class Repo {
         public String name;
         public boolean isFork;
