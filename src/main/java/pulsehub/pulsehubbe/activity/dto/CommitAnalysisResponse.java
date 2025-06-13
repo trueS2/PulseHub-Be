@@ -10,4 +10,6 @@ import lombok.Getter;
 @AllArgsConstructor
 public class CommitAnalysisResponse {
     private Map<LocalDate, Integer> dailyCommitCounts;
+    private int peakHour;
+    private int peakHourCommitCount;
 }
