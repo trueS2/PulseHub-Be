@@ -1,6 +1,7 @@
 package pulsehub.pulsehubbe.activity.service.impl;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -8,7 +9,9 @@ import org.springframework.stereotype.Service;
 
 import lombok.RequiredArgsConstructor;
 import pulsehub.pulsehubbe.activity.dto.CommitAnalysisResponse;
+import pulsehub.pulsehubbe.activity.dto.CommitTag;
 import pulsehub.pulsehubbe.activity.service.CommitAnalysisService;
+import pulsehub.pulsehubbe.activity.util.CommitTagAnalyzer;
 import pulsehub.pulsehubbe.activity.util.GitHubApiClient;
 
 @Service
@@ -42,6 +45,9 @@ public class CommitAnalysisServiceImpl implements CommitAnalysisService {
             }
         }
 
-        return new CommitAnalysisResponse(fullDateMap, peakHour, peakCount);
+        List<CommitTag> tags = CommitTagAnalyzer.analyzeTags(fullDateMap, hourlyCommitMap);
+
+
+        return new CommitAnalysisResponse(fullDateMap, peakHour, peakCount, tags);
     }
 }

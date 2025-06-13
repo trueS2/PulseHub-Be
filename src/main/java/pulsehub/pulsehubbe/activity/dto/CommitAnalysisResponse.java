@@ -1,6 +1,7 @@
 package pulsehub.pulsehubbe.activity.dto;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 
 import lombok.AllArgsConstructor;
@@ -12,4 +13,5 @@ public class CommitAnalysisResponse {
     private Map<LocalDate, Integer> dailyCommitCounts;
     private int peakHour;
     private int peakHourCommitCount;
+    private List<CommitTag> tags;
 }
