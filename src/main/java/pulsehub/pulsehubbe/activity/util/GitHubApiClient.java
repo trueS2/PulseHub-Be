@@ -7,7 +7,10 @@ import java.util.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
+import pulsehub.pulsehubbe.global.exception.GlobalException;
+import pulsehub.pulsehubbe.global.exception.type.ErrorCode;
 
 @Component
 public class GitHubApiClient {
@@ -26,17 +29,24 @@ public class GitHubApiClient {
         headers.setBearerAuth(githubToken);
         HttpEntity<Void> entity = new HttpEntity<>(headers);
 
-        ResponseEntity<Repo[]> response = restTemplate.exchange(url, HttpMethod.GET, entity, Repo[].class);
+        try {
+            ResponseEntity<Repo[]> response = restTemplate.exchange(url, HttpMethod.GET, entity, Repo[].class);
 
-        List<String> repoNames = new ArrayList<>();
-        if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+            if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) {
+                throw new GlobalException(ErrorCode.REPO_NOT_FOUND);
+            }
+
+            List<String> repoNames = new ArrayList<>();
             for (Repo repo : response.getBody()) {
                 if (!repo.isFork) {
                     repoNames.add(repo.name);
                 }
             }
+            return repoNames;
+
+        } catch (RestClientException e) {
+            throw new GlobalException(ErrorCode.GITHUB_API_ERROR);
         }
-        return repoNames;
     }
 
     public Map<LocalDate, Integer> fetchCommitCounts(String username, LocalDate startDate, LocalDate endDate) {
@@ -90,7 +100,7 @@ public class GitHubApiClient {
                     String dateStr = commit.commit.author.date;
                     OffsetDateTime odt = OffsetDateTime.parse(dateStr);
                     LocalDate date = odt.toLocalDate();
-                    int hour = odt.getHour(); // 0 ~ 23
+                    int hour = odt.getHour();
 
                     if (dailyMap != null) {
                         dailyMap.put(date, dailyMap.getOrDefault(date, 0) + 1);
@@ -101,13 +111,12 @@ public class GitHubApiClient {
                     }
                 }
             }
+
         } catch (Exception e) {
-            System.out.println("오류 발생 - fetchCommitsForRepo: " + e.getMessage());
-            throw e;
+            throw new GlobalException(ErrorCode.GITHUB_API_ERROR);
         }
     }
 
-    // 내부 클래스: GitHub API 응답용
     static class Repo {
         public String name;
         public boolean isFork;
