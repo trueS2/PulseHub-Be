@@ -19,3 +19,7 @@ spring:
 
 github:
   token: ${GITHUB_DEFAULT_TOKEN}
+
+jwt:
+  secret: ${JWT_SECRET_KEY}
+
