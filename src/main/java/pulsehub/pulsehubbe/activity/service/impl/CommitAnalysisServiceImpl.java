@@ -21,19 +21,19 @@ public class CommitAnalysisServiceImpl implements CommitAnalysisService {
     private final GitHubApiClient gitHubApiClient;
 
     @Override
-    public CommitAnalysisResponse getCommitCounts(String username, int days) {
+    public CommitAnalysisResponse getCommitCounts(String username, int days, String accessToken) {
         LocalDate endDate = LocalDate.now();
         LocalDate startDate = endDate.minusDays(days - 1);
 
         // 1. 일별 커밋 수
-        Map<LocalDate, Integer> commitCountMap = gitHubApiClient.fetchCommitCounts(username, startDate, endDate);
+        Map<LocalDate, Integer> commitCountMap = gitHubApiClient.fetchCommitCounts(username, startDate, endDate, accessToken);
         Map<LocalDate, Integer> fullDateMap = new TreeMap<>();
         for (LocalDate date = startDate; !date.isAfter(endDate); date = date.plusDays(1)) {
             fullDateMap.put(date, commitCountMap.getOrDefault(date, 0));
         }
 
         // 2. 시간대별 커밋 수
-        Map<Integer, Integer> hourlyCommitMap = gitHubApiClient.fetchHourlyCommitCounts(username, startDate, endDate);
+        Map<Integer, Integer> hourlyCommitMap = gitHubApiClient.fetchHourlyCommitCounts(username, startDate, endDate, accessToken);
 
         // 3. 가장 활발한 시간대 계산
         int peakHour = 0;
@@ -46,7 +46,6 @@ public class CommitAnalysisServiceImpl implements CommitAnalysisService {
         }
 
         List<CommitTag> tags = CommitTagAnalyzer.analyzeTags(fullDateMap, hourlyCommitMap);
-
 
         return new CommitAnalysisResponse(fullDateMap, peakHour, peakCount, tags);
     }

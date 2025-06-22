@@ -11,4 +11,9 @@ public class GlobalException extends RuntimeException {
         super(errorCode.getDescription());
         this.errorCode = errorCode;
     }
+
+    public GlobalException(ErrorCode errorCode, Throwable cause) {
+        super(errorCode.getDescription(), cause);
+        this.errorCode = errorCode;
+    }
 }
