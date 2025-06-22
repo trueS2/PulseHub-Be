@@ -21,12 +21,8 @@ public class CommitAnalysisController {
             @RequestHeader("Authorization") String authorizationHeader
     ) {
         String jwt = authorizationHeader.substring(7);
-        System.out.println("🔓 파싱된 JWT: " + jwt);
 
         String githubAccessToken = jwtProvider.getAccessTokenFromJwt(jwt);
-        System.out.println("🐙 추출된 GitHub access token: " + githubAccessToken);
-
-        System.out.println("🔑 받은 Authorization 헤더: " + authorizationHeader);
 
         return commitAnalysisService.getCommitCounts(username, days, githubAccessToken);
     }

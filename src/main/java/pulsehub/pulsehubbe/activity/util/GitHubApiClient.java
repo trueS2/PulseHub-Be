@@ -1,11 +1,21 @@
 package pulsehub.pulsehubbe.activity.util;
 
-import java.time.*;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
-import org.springframework.http.*;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
@@ -19,14 +29,21 @@ public class GitHubApiClient {
     private final RestTemplate restTemplate = new RestTemplate();
 
     public List<String> fetchUserRepos(String username, String accessToken) {
-        String url = GITHUB_API_BASE + "/users/" + username + "/repos?per_page=100";
+        String authenticated = fetchAuthenticatedUsername(accessToken);
+        String url;
+        if (username.equals(authenticated)) {
+            url = GITHUB_API_BASE + "/user/repos?per_page=100";
+        } else {
+            url = GITHUB_API_BASE + "/users/" + username + "/repos?per_page=100";
+        }
 
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(accessToken);
         HttpEntity<Void> entity = new HttpEntity<>(headers);
 
         try {
-            ResponseEntity<Repo[]> response = restTemplate.exchange(url, HttpMethod.GET, entity, Repo[].class);
+            ResponseEntity<Repo[]> response = restTemplate.exchange(
+                    url, HttpMethod.GET, entity, Repo[].class);
 
             if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) {
                 throw new GlobalException(ErrorCode.REPO_NOT_FOUND);
@@ -40,25 +57,59 @@ public class GitHubApiClient {
             }
             return repoNames;
 
+        } catch (HttpClientErrorException e) {
+            if (e.getStatusCode() == HttpStatus.NOT_FOUND) {
+                throw new GlobalException(ErrorCode.REPO_NOT_FOUND, e);
+            }
+            throw new GlobalException(ErrorCode.GITHUB_API_ERROR, e);
         } catch (RestClientException e) {
-            throw new GlobalException(ErrorCode.GITHUB_API_ERROR);
+            throw new GlobalException(ErrorCode.GITHUB_API_ERROR, e);
         }
     }
 
-    public Map<LocalDate, Integer> fetchCommitCounts(String username, LocalDate startDate, LocalDate endDate, String accessToken) {
+
+    private String fetchAuthenticatedUsername(String accessToken) {
+        String url = GITHUB_API_BASE + "/user";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+        try {
+            ResponseEntity<User> response = restTemplate.exchange(
+                    url, HttpMethod.GET, entity, User.class);
+
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                return response.getBody().login;
+            } else {
+                throw new GlobalException(ErrorCode.GITHUB_API_ERROR);
+            }
+        } catch (RestClientException e) {
+            throw new GlobalException(ErrorCode.GITHUB_API_ERROR, e);
+        }
+    }
+
+    public Map<LocalDate, Integer> fetchCommitCounts(
+            String username,
+            LocalDate startDate,
+            LocalDate endDate,
+            String accessToken
+    ) {
         List<String> repos = fetchUserRepos(username, accessToken);
         Map<LocalDate, Integer> commitCountMap = new HashMap<>();
-
         for (String repo : repos) {
             fetchCommitsForRepo(username, repo, startDate, endDate, commitCountMap, null, accessToken);
         }
         return commitCountMap;
     }
 
-    public Map<Integer, Integer> fetchHourlyCommitCounts(String username, LocalDate startDate, LocalDate endDate, String accessToken) {
+    public Map<Integer, Integer> fetchHourlyCommitCounts(
+            String username,
+            LocalDate startDate,
+            LocalDate endDate,
+            String accessToken
+    ) {
         List<String> repos = fetchUserRepos(username, accessToken);
         Map<Integer, Integer> hourlyCommitMap = new HashMap<>();
-
         for (String repo : repos) {
             fetchCommitsForRepo(username, repo, startDate, endDate, null, hourlyCommitMap, accessToken);
         }
@@ -72,8 +123,8 @@ public class GitHubApiClient {
             LocalDate endDate,
             Map<LocalDate, Integer> dailyMap,
             Map<Integer, Integer> hourlyMap,
-            String accessToken) {
-
+            String accessToken
+    ) {
         OffsetDateTime sinceDateTime = startDate.atStartOfDay().atOffset(ZoneOffset.UTC);
         OffsetDateTime untilDateTime = endDate.plusDays(1).atStartOfDay().atOffset(ZoneOffset.UTC);
 
@@ -87,37 +138,35 @@ public class GitHubApiClient {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(accessToken);
-
-        System.out.println("GitHub API 호출 시 사용하는 access token: " + accessToken);
-        System.out.println("호출 URL: " + url);
-
         HttpEntity<Void> entity = new HttpEntity<>(headers);
 
         try {
-            ResponseEntity<Commit[]> response = restTemplate.exchange(url, HttpMethod.GET, entity, Commit[].class);
-
-            System.out.println("응답 코드: " + response.getStatusCode());
-            System.out.println("응답 바디 길이: " + (response.getBody() != null ? response.getBody().length : "null"));
+            ResponseEntity<Commit[]> response = restTemplate.exchange(
+                    url, HttpMethod.GET, entity, Commit[].class);
 
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
                 for (Commit commit : response.getBody()) {
-                    String dateStr = commit.commit.author.date;
-                    OffsetDateTime odt = OffsetDateTime.parse(dateStr);
+                    OffsetDateTime odt = OffsetDateTime.parse(commit.commit.author.date);
                     LocalDate date = odt.toLocalDate();
                     int hour = odt.getHour();
 
                     if (dailyMap != null) {
                         dailyMap.put(date, dailyMap.getOrDefault(date, 0) + 1);
                     }
-
                     if (hourlyMap != null) {
                         hourlyMap.put(hour, hourlyMap.getOrDefault(hour, 0) + 1);
                     }
                 }
             }
-
-        } catch (Exception e) {
-            throw new GlobalException(ErrorCode.GITHUB_API_ERROR);
+        } catch (HttpClientErrorException e) {
+            if (e.getStatusCode() == HttpStatus.CONFLICT) {
+                // 빈 리포지토리인 경우에만 스킵
+                System.out.println("❗ 빈 리포지토리 스킵: " + owner + "/" + repo);
+                return;
+            }
+            throw new GlobalException(ErrorCode.GITHUB_API_ERROR, e);
+        } catch (RestClientException e) {
+            throw new GlobalException(ErrorCode.GITHUB_API_ERROR, e);
         }
     }
 
@@ -128,13 +177,15 @@ public class GitHubApiClient {
 
     static class Commit {
         public CommitDetail commit;
-
         static class CommitDetail {
             public Author author;
-
             static class Author {
                 public String date;
             }
         }
+    }
+
+    static class User {
+        public String login;
     }
 }
