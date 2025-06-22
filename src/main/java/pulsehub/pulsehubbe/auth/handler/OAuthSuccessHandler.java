@@ -35,6 +35,8 @@ public class OAuthSuccessHandler implements AuthenticationSuccessHandler {
 
         String githubAccessToken = client.getAccessToken().getTokenValue();
 
+        System.out.println("GitHub access token: " + githubAccessToken);
+
         String jwt = jwtProvider.createToken(githubAccessToken);
 
         response.sendRedirect("http://localhost:3000/oauth/redirect?jwt=" + jwt);

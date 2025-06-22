@@ -17,9 +17,11 @@ spring:
             token-uri: https://github.com/login/oauth/access_token
             user-info-uri: https://api.github.com/user
 
-github:
-  token: ${GITHUB_DEFAULT_TOKEN}
-
 jwt:
   secret: ${JWT_SECRET_KEY}
+
+logging:
+  level:
+    root: INFO
+
 
